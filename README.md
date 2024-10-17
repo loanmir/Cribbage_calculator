@@ -1,2 +1,2 @@
 # Cribbage_calculator
-Cribbage Score calculator in Java programming language
+Cribbage fifteenScore calculator in Java programming language
