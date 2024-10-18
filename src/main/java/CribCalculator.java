@@ -1,63 +1,124 @@
 import java.util.*;
 
 
-
-import java.util.ArrayList;
-
-
 public class CribCalculator {
     public static void main(String[] args) {
         // Example hand and starter card
-        String[] hand = {"5H", "5D", "5S", "JC"}; // Hand cards
-        String starter = "5C"; // Starter card
+        //String[] hand = {"5H", "5D", "5S", "JC"}; // Hand cards
+        //String starter = "5C"; // Starter card
+        ArrayList<Card> hand = new ArrayList<>(4);
+        Card starter = null;
 
-        int score = calculateScore(hand, starter);
-        System.out.println("Total score for the hand: " + score);
+        // User inputs the cards on the keyboard
+        Scanner sc = new Scanner(System.in);
+
+        while (hand.size() < 4) {
+            System.out.println("Please enter card number " + (hand.size() + 1) + " in your hand");
+            System.out.println("The cards should be represented in the format RS, where R denotes the rank and S represents the suit.");
+            Card card = getCard(sc.nextLine());
+            if (card != null)
+                hand.add(card);
+            else
+                System.out.println("Invalid card entered\n");
+        }
+
+        //entering starter card
+        while (starter == null) {
+            System.out.println("Please enter the starter card");
+            System.out.println("The card should be represented in the format RS, where R denotes the rank and S represents the suit.");
+            Card card = getCard(sc.nextLine());
+            if (card != null)
+                starter = card;
+            else
+                System.out.println("Invalid card entered\n");
+        }
+
+
+        int total = calculateScore(hand, starter);
+
+        System.out.println("Total points for the hand: " + total);
     }
 
-    public static int calculateScore(String[] hand, String starter) {
-        List<String> allCards = new ArrayList<>(Arrays.asList(hand));
-        allCards.add(starter);
+
+    // GetCard method for getting the Rank and the suit of the inserted card!
+
+
+    private static Card getCard(String card) {
+        String rankTyped;
+
+        //Extract the rank
+        if (card.length() == 2)
+            rankTyped = card.substring(0, 1);
+        else return null; //Badly typed input
+        Rank rank = Rank.rankFromChar(rankTyped);
+        if (rank == null) return null; //Badly typed rank
+
+        //Getting the suit
+        char suitC = card.charAt(card.length() - 1); // selecting the last character of inserted string
+        Suit suit = Suit.suitFromCharacter(suitC);
+        if (suit == null) return null; //Badly typed suit
+
+        return new Card(rank, suit);
+    }
+
+
+    // Calculating the total points
+
+    public static int calculateScore(List<Card> hand, Card starter) {
 
         int score = 0;
 
         // Count pairs
-        score += countPairs(allCards);
+        score += countPairs(hand, starter);
 
         // Count runs
-        score += countRuns(allCards);
+        score += countRuns(hand, starter);
 
         // Count combinations that total fifteen
-        score += countFifteens(allCards);
+        score += countFifteens(hand, starter);
 
         // Check for flush
         score += checkFlush(hand, starter);
 
+        score += samesuitJ(hand, starter);
+
         return score;
     }
 
-    private static int countPairs(List<String> cards) {
-        Map<String, Integer> cardCount = new HashMap<>();
-        int pairs = 0;
 
-        for (String card : cards) {
-            String rank = card.substring(0, card.length() - 1); // Get rank
-            cardCount.put(rank, cardCount.getOrDefault(rank, 0) + 1);
+
+    // Recursive function for count score of all possible pairs in a Cribbage hand.
+    public static int countPairs(List<Card> hand, Card starter) {
+        List<Card> handPlusStarter = new LinkedList<>(hand);
+        handPlusStarter.add(starter);
+        return countPairs(handPlusStarter);
+    }
+    private static int countPairs(List<Card> handPlusStarter){
+
+       int score = 0;
+
+       Card lastElt = handPlusStarter.remove(handPlusStarter.size() - 1);
+       for (Card card : handPlusStarter) {
+            if (lastElt.getRank() == card.getRank())
+                score += 2;
         }
-
-        for (int count : cardCount.values()) {
-            if (count == 2) {
-                pairs += 2; // 2 points for each pair
-            }
-        }
-
-        return pairs;
+        if (handPlusStarter.size() > 1)
+            return score + countPairs(handPlusStarter);
+        return score;
     }
 
-    private static int countRuns(List<String> cards) {
-        Set<Integer> ranks = new HashSet<>();
-        for (String card : cards) {
-            ranks.add(getRankValue(card.substring(0, card.length() - 1)));
+
+    public static int countRuns(List<Card> hand, Card starter) {
+        List<Card> handPlusStarter = new LinkedList<>(hand);
+        handPlusStarter.add(starter);
+        return countPairs(handPlusStarter);
+    }
+
+
+    private static int countRuns(List<Card> handPlusStarter) {
+        Set<Card> ranks = new HashSet<>();
+        for (Card card : handPlusStarter) {
+            ranks.add(getRank(card.substring(0, card.length() - 1)));
         }
 
         List<Integer> sortedRanks = new ArrayList<>(ranks);
@@ -84,62 +145,78 @@ public class CribCalculator {
         return runs;
     }
 
-    private static int countFifteens(List<String> cards) {
-        int count = 0;
-        int n = cards.size();
 
-        // Check all combinations of cards
-        for (int i = 1; i < (1 << n); i++) {
-            int sum = 0;
-            for (int j = 0; j < n; j++) {
-                if ((i & (1 << j)) > 0) {
-                    sum += getRankValue(cards.get(j).substring(0, cards.get(j).length() - 1));
+
+    public static int countFifteens(List<Card> hand, Card starter) {
+        List<Card> handPlusStarter = new LinkedList<>(hand);
+        handPlusStarter.add(starter);
+        return countFifteens(handPlusStarter);
+    }
+
+
+    private static int countFifteens(List<Card> handPlusStarter) {
+        int score = 0;
+        if(handPlusStarter.size() == 5){
+            int totalTempScore = 0;
+            for(Card c : handPlusStarter) {
+                totalTempScore += c.getRank().getScore();
+            }
+            if(totalTempScore == 15)
+                score+=2;
+        }
+        Card lastElt = handPlusStarter.remove(handPlusStarter.size() - 1); //Remove last element to avoid array recalculation of combinations with same card set
+        for (int i = 0; i < handPlusStarter.size(); i++) {
+            int cardIScore = handPlusStarter.get(i).getRank().getScore();
+            if (lastElt.getRank().getScore() + cardIScore == 15)
+                score += 2;
+            for (int j = i + 1; j < handPlusStarter.size(); j++) {
+                int cardJScore = handPlusStarter.get(j).getRank().getScore();
+                if (cardIScore + cardJScore + lastElt.getRank().getScore() == 15)
+                    score += 2;
+                for (int k = j + 1; k < handPlusStarter.size(); k++) {
+                    int cardKScore = handPlusStarter.get(k).getRank().getScore();
+                    if (cardIScore + cardJScore + cardKScore + lastElt.getRank().getScore() == 15)
+                        score += 2;
                 }
             }
-            if (sum == 15) {
-                count += 2; // 2 points for each combination that totals fifteen
-            }
         }
 
-        return count;
+        if (handPlusStarter.size() > 1)
+            return score + countFifteens(handPlusStarter);
+        return score;
     }
 
-    private static int checkFlush(String[] hand, String starter) {
-        String suit = hand[0].substring(hand[0].length() - 1);
-        boolean flush = true;
 
-        for (int i = 1; i < hand.length; i++) {
-            if (!hand[i].endsWith(suit)) {
-                flush = false;
-                break;
-            }
+
+    // computing score of flushes of the current hand
+
+    private static int checkFlush(List<Card> hand, Card starter) {
+        Suit suit = hand.get(0).getSuit();
+       //boolean flush = true;
+
+        for (Card card : hand) {
+            if (card.getSuit() != suit)
+                return 0;
         }
 
-        if (flush && starter.endsWith(suit)) {
-            return 5; // 5 points for a flush including starter
-        } else if (flush) {
-            return 4; // 4 points for a flush without starter
-        }
+        if (starter.getSuit() == suit)
+            return 5;
 
-        return 0; // No flush
+
     }
 
-    private static int getRankValue(String rank) {
-        switch (rank) {
-            case "A": return 1;  // Ace
-            case "2": return 2;  // Two
-            case "3": return 3;  // Three
-            case "4": return 4;  // Four
-            case "5": return 5;  // Five
-            case "6": return 6;  // Six
-            case "7": return 7;  // Seven
-            case "8": return 8;  // Eight
-            case "9": return 9;  // Nine
-            case "0": return 10; // Ten
-            case "J": return 10;  // Jack
-            case "Q": return 10;  // Queen
-            case "K": return 10;  // King
-            default: return 0;    // Invalid rank
-        }
+    // Checking if there is a JACK in the hand that has same suit as the starter card.
+
+    private static int samesuitJ(List<Card> hand, Card starter){
+        for(Card card : hand)
+            if(card.getRank() == Rank.JACK && card.getSuit() == starter.getSuit())
+                return 1;
+
+        return 0;
     }
+
+
 }
+
+//else if (card.length() == 3) //If the user writes 10X
+  //      rankTyped = card.substring(0, 2);
